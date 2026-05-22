@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Context, Priority, CONTEXT_LABELS, CONTEXT_COLORS, PRIORITY_LABELS } from '@/lib/types'
 
 interface QuickAddProps {
@@ -19,6 +19,40 @@ export default function QuickAdd({ defaultContext = 'nowa', onAdd }: QuickAddPro
   const [priority, setPriority] = useState<Priority>('media')
   const [dueDate, setDueDate] = useState('')
   const [showOptions, setShowOptions] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const [speechSupported, setSpeechSupported] = useState(false)
+  const recognitionRef = useRef<any>(null)
+
+  useEffect(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (SR) setSpeechSupported(true)
+  }, [])
+
+  function toggleVoice() {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) return
+
+    if (recording) {
+      recognitionRef.current?.stop()
+      setRecording(false)
+      return
+    }
+
+    const recognition = new SR()
+    recognition.lang = 'pt-PT'
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript
+      setTitle((prev) => (prev ? prev + ' ' + transcript : transcript))
+      setShowOptions(true)
+    }
+    recognition.onend = () => setRecording(false)
+    recognition.onerror = () => setRecording(false)
+    recognitionRef.current = recognition
+    recognition.start()
+    setRecording(true)
+  }
 
   function handleSubmit() {
     const trimmed = title.trim()
@@ -59,6 +93,24 @@ export default function QuickAdd({ defaultContext = 'nowa', onAdd }: QuickAddPro
           placeholder="Nova tarefa... (Enter para adicionar)"
           className="flex-1 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-all"
         />
+        {speechSupported && (
+          <button
+            onClick={toggleVoice}
+            title={recording ? 'A gravar… clica para parar' : 'Gravar áudio'}
+            className={`p-2.5 rounded-lg border transition-all cursor-pointer ${
+              recording
+                ? 'border-red-500 text-red-400 animate-pulse'
+                : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <rect x="9" y="2" width="6" height="11" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+        )}
         <button
           onClick={handleSubmit}
           disabled={!title.trim()}
