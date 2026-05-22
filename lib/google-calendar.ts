@@ -89,3 +89,54 @@ export function isEventSoon(event: CalendarEvent): boolean {
   const diff = (new Date(event.start.dateTime).getTime() - Date.now()) / 60000
   return diff > 0 && diff <= 30
 }
+
+export async function fetchWeekEvents(token: string): Promise<CalendarEvent[]> {
+  const now = new Date()
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  monday.setHours(0, 0, 0, 0)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  sunday.setHours(23, 59, 59, 999)
+
+  const params = new URLSearchParams({
+    timeMin: monday.toISOString(),
+    timeMax: sunday.toISOString(),
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '50',
+  })
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+
+  if (res.status === 401) { clearToken(); throw new Error('token_expired') }
+  if (!res.ok) throw new Error('fetch_failed')
+  const data = await res.json()
+  return (data.items || []) as CalendarEvent[]
+}
+
+export function getWeekDays(): Date[] {
+  const now = new Date()
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  monday.setHours(0, 0, 0, 0)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
+}
+
+export function getEventDateKey(event: CalendarEvent): string {
+  const s = event.start.dateTime || event.start.date || ''
+  return s.split('T')[0]
+}
+
+export function isoDateKey(d: Date): string {
+  return d.toISOString().split('T')[0]
+}
