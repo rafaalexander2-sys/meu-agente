@@ -6,6 +6,7 @@ import DailyBriefing from '@/components/DailyBriefing'
 import QuickAdd from '@/components/QuickAdd'
 import TaskBoard from '@/components/TaskBoard'
 import ProductivityStats from '@/components/ProductivityStats'
+import CalendarSection from '@/components/CalendarSection'
 import { Task, Context, Status, Priority } from '@/lib/types'
 import { initStorage, addTask, updateTask, deleteTask, getTasks } from '@/lib/storage'
 
@@ -137,8 +138,9 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Right column: ProductivityStats */}
-            <div className="xl:sticky xl:top-6 xl:self-start">
+            {/* Right column: Calendar + ProductivityStats */}
+            <div className="xl:sticky xl:top-6 xl:self-start flex flex-col gap-4">
+              <CalendarSection />
               <ProductivityStats tasks={tasks} />
             </div>
           </div>
