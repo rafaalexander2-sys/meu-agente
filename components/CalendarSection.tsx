@@ -6,11 +6,16 @@ import {
   getStoredToken,
   initTokenClient,
   revokeToken,
-  fetchTodayEvents,
+  fetchWeekEvents,
   formatEventTime,
   isEventNow,
   isEventSoon,
+  getWeekDays,
+  getEventDateKey,
+  isoDateKey,
 } from '@/lib/google-calendar'
+
+const DAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
 export default function CalendarSection() {
   const [token, setToken] = useState<string | null>(null)
@@ -18,7 +23,15 @@ export default function CalendarSection() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [gsiReady, setGsiReady] = useState(false)
+  const [weekDays, setWeekDays] = useState<Date[]>([])
+  const [selectedDay, setSelectedDay] = useState<string>('')
   const tokenClientRef = useRef<any>(null)
+
+  useEffect(() => {
+    const days = getWeekDays()
+    setWeekDays(days)
+    setSelectedDay(isoDateKey(new Date()))
+  }, [])
 
   useEffect(() => {
     const check = () => {
@@ -50,7 +63,7 @@ export default function CalendarSection() {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchTodayEvents(t)
+      const data = await fetchWeekEvents(t)
       setEvents(data)
     } catch (e: any) {
       if (e.message === 'token_expired') {
@@ -70,6 +83,17 @@ export default function CalendarSection() {
     setEvents([])
     setError(null)
   }
+
+  // Group events by date key
+  const eventsByDay: Record<string, CalendarEvent[]> = {}
+  for (const event of events) {
+    const key = getEventDateKey(event)
+    if (!eventsByDay[key]) eventsByDay[key] = []
+    eventsByDay[key].push(event)
+  }
+
+  const todayKey = isoDateKey(new Date())
+  const selectedEvents = eventsByDay[selectedDay] || []
 
   if (!token) {
     return (
@@ -95,8 +119,9 @@ export default function CalendarSection() {
 
   return (
     <div className="bg-[#1E293B] rounded-xl border border-slate-700/50 p-4">
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Agenda hoje</p>
+        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Agenda da semana</p>
         <div className="flex items-center gap-2">
           {loading && (
             <div className="w-3 h-3 rounded-full border border-blue-400 border-t-transparent animate-spin" />
@@ -119,12 +144,46 @@ export default function CalendarSection() {
         </div>
       </div>
 
-      {!loading && events.length === 0 && (
-        <p className="text-slate-600 text-sm">Sem eventos hoje.</p>
+      {/* Day selector */}
+      <div className="flex gap-1 mb-3">
+        {weekDays.map((day, i) => {
+          const key = isoDateKey(day)
+          const isToday = key === todayKey
+          const isSelected = key === selectedDay
+          const hasEvents = (eventsByDay[key] || []).length > 0
+          return (
+            <button
+              key={key}
+              onClick={() => setSelectedDay(key)}
+              className={`flex-1 flex flex-col items-center py-1.5 px-1 rounded-lg text-xs font-medium transition-all cursor-pointer relative ${
+                isSelected
+                  ? isToday
+                    ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40'
+                    : 'bg-slate-700 text-white'
+                  : isToday
+                  ? 'text-blue-400 hover:bg-blue-500/10'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <span>{DAY_LABELS[i]}</span>
+              <span className={`text-[10px] mt-0.5 ${isSelected ? '' : 'text-slate-600'}`}>
+                {day.getDate()}
+              </span>
+              {hasEvents && (
+                <span className="w-1 h-1 rounded-full bg-blue-400 mt-0.5" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Events for selected day */}
+      {!loading && selectedEvents.length === 0 && (
+        <p className="text-slate-600 text-sm">Sem eventos.</p>
       )}
 
       <div className="space-y-2">
-        {events.map((event) => {
+        {selectedEvents.map((event) => {
           const now = isEventNow(event)
           const soon = isEventSoon(event)
           return (
